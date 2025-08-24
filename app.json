@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "Mestre Cards",
+    "slug": "mestre_cards",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "mestrecards",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.matheusbalbino1.mestre_cards"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.matheusbalbino1.mestre_cards"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "enableSQLite": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "splash": {
+      "backgroundColor": "#ffffff",
+      "resizeMode": "contain",
+      "image": "./assets/images/splash-icon.png"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "54dd09df-e48d-47df-984a-194fa757cb74"
+      }
+    },
+    "owner": "matheusbalbino1"
+  }
+}
