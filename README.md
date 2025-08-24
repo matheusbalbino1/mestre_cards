@@ -295,6 +295,12 @@ docs: atualiza README com informações técnicas
 refactor: reorganiza estrutura de componentes
 ```
 
+## Download do APK
+
+Você pode baixar o arquivo APK diretamente pelo link abaixo:
+
+[Download do APK](https://expo.dev/artifacts/eas/sBxMLCA75buYo13pmWUNMa.apk)
+
 ## 📚 Referências Técnicas
 
 - [SuperMemo Algorithm](https://super-memo.com/english/ol/sm2.htm)
