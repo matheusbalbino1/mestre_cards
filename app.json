@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mestre Cards",
     "slug": "mestre_cards",
-    "version": "1.0.1",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icone.png",
     "scheme": "mestrecards",
@@ -18,7 +18,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.matheusbalbino1.mestre_cards"
+      "package": "com.matheusbalbino1.mestre_cards",
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
     },
     "web": {
       "bundler": "metro",
