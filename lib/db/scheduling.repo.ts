@@ -142,3 +142,31 @@ export async function resetCardScheduling(cardId: string): Promise<void> {
     now.toISOString()
   )
 }
+
+export async function resetAllCardsScheduling(deckId: string): Promise<void> {
+  const db = await getDB()
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+
+  // Primeiro, busca todos os cards do deck
+  const cards = await db.getAllAsync<{ id: string }>(
+    `SELECT id FROM cards WHERE deck_id = ?`,
+    deckId
+  )
+
+  // Reset de todos os cards do deck
+  for (const card of cards) {
+    await db.runAsync(
+      `INSERT INTO scheduling_state
+         (card_id, repetitions, interval_days, interval_minutes, ease, due_date, last_review_at, lapses, due_at)
+       VALUES (?, 0, 0, 0, 2.5, ?, NULL, 0, ?)
+       ON CONFLICT(card_id) DO UPDATE SET
+         repetitions=0, interval_days=0, interval_minutes=0, ease=2.5,
+         due_date=excluded.due_date, last_review_at=NULL, lapses=0,
+         due_at=excluded.due_at`,
+      card.id,
+      today,
+      now.toISOString()
+    )
+  }
+}

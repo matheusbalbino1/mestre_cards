@@ -1,6 +1,5 @@
 // app/index.tsx
 import { ColorGreen } from "@/constants/Colors"
-import { ensureDBReady } from "@/lib/db"
 import { Href, router, useFocusEffect } from "expo-router"
 import React from "react"
 import {
@@ -45,9 +44,9 @@ export default function HomeDecks() {
   const [decks, setDecks] = React.useState<DeckStats[]>([])
   const [loading, setLoading] = React.useState(true)
 
-  // estado do modal de criação
   const [createOpen, setCreateOpen] = React.useState(false)
   const [deckName, setDeckName] = React.useState("")
+  const [deckDescription, setDeckDescription] = React.useState("")
 
   const load = React.useCallback(async () => {
     setLoading(true)
@@ -56,55 +55,36 @@ export default function HomeDecks() {
     setLoading(false)
   }, [])
 
-  useFocusEffect(
-    React.useCallback(() => {
-      load()
-    }, [load])
-  )
-
   async function handleCreateDeck() {
     const name = deckName.trim()
     if (!name) return
 
     const now = new Date().toISOString()
-    console.log(`Criando deck: "${name}" em ${now}`)
     try {
-      console.log("Chamando createDeck...")
       await createDeck({
         id: String(uuid.v4()),
         name,
-        description: null,
+        description: deckDescription.trim() || null,
         tags: null,
         created_at: now,
         updated_at: now,
       })
-      console.log("Deck criado com sucesso")
-      Alert.alert("Sucesso", `Deck "${name}" criado com sucesso.`)
       setCreateOpen(false)
       setDeckName("")
-      console.log("Recarregando lista de decks...")
+      setDeckDescription("")
       await load()
-      console.log("Lista recarregada")
     } catch (e) {
       console.error("Erro ao criar deck:", e)
       const message = e instanceof Error ? e.message : "Erro desconhecido"
-      Alert.alert("Erro", message)
+      Alert.alert("Erro ao criar deck:", message)
     }
   }
 
-  React.useEffect(() => {
-    const initDB = async () => {
-      try {
-        console.log("Inicializando banco de dados...")
-        await ensureDBReady()
-        console.log("Banco de dados inicializado com sucesso")
-      } catch (err) {
-        console.error("Erro ao inicializar banco:", err)
-      }
-    }
-
-    initDB()
-  }, [])
+  useFocusEffect(
+    React.useCallback(() => {
+      load()
+    }, [load])
+  )
 
   return (
     <View style={{ flex: 1, padding: 16, paddingTop: insets.top + 12 }}>
@@ -282,6 +262,28 @@ export default function HomeDecks() {
               }}
             />
 
+            <Text style={{ marginTop: 16, opacity: 0.7 }}>
+              Descrição (opcional):
+            </Text>
+
+            <TextInput
+              placeholder="Exemplo: Verbos irregulares em inglês para iniciantes"
+              value={deckDescription}
+              onChangeText={setDeckDescription}
+              multiline
+              numberOfLines={3}
+              style={{
+                borderWidth: 1,
+                borderColor: "#ccc",
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                marginTop: 8,
+                minHeight: 80,
+                textAlignVertical: "top",
+              }}
+            />
+
             <View
               style={{
                 flexDirection: "row",
@@ -294,6 +296,7 @@ export default function HomeDecks() {
                 onPress={() => {
                   setCreateOpen(false)
                   setDeckName("")
+                  setDeckDescription("")
                 }}
                 style={{
                   paddingVertical: 10,

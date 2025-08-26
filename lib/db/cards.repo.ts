@@ -18,14 +18,33 @@ export type CardWithDue = Card & {
 
 export async function listCardsByDeck(deckId: string): Promise<CardWithDue[]> {
   const db = await getDB()
+  const now = new Date().toISOString()
+
   return db.getAllAsync<CardWithDue>(
     `SELECT c.id, c.deck_id, c.front, c.back, c.media, c.created_at, c.updated_at,
             s.due_date, s.due_at, s.last_review_at
        FROM cards c
   LEFT JOIN scheduling_state s ON s.card_id = c.id
       WHERE c.deck_id = ?
-   ORDER BY c.updated_at DESC NULLS LAST`,
-    deckId
+   ORDER BY 
+     CASE 
+       WHEN s.due_at IS NOT NULL THEN 
+         CASE 
+           WHEN s.due_at <= ? THEN 0  -- Atrasados primeiro (prioridade máxima)
+           ELSE 1                     -- Futuros depois
+         END
+       WHEN s.due_date IS NOT NULL THEN 
+         CASE 
+           WHEN s.due_date <= ? THEN 0  -- Atrasados primeiro
+           ELSE 1                       -- Futuros depois
+         END
+       ELSE 2  -- Sem scheduling (novos) por último
+     END,
+     COALESCE(s.due_at, s.due_date || 'T00:00:00', '9999-12-31') ASC,  -- Ordem cronológica
+     c.created_at DESC  -- Cards mais recentes primeiro em caso de empate`,
+    deckId,
+    now,
+    now.slice(0, 10)
   )
 }
 

@@ -1,36 +1,27 @@
 // app/splash.tsx
-import { checkTablesExist, ensureDBReady } from "@/lib/db"
+import { DatabaseStatus } from "@/lib/db"
 import { router } from "expo-router"
-import * as SplashScreen from "expo-splash-screen"
-import React, { useEffect } from "react"
-import { ActivityIndicator, Alert, Text, View } from "react-native"
-
-SplashScreen.preventAutoHideAsync() // Impede que o splash padrão feche antes da hora
+import React, { useEffect, useState } from "react"
+import { ActivityIndicator, Image, Text, View } from "react-native" // para permitir que o Expo gerencie a splash screen nativa
+import { useDB } from "./contexts/DBContext"
 
 export default function Splash() {
-  useEffect(() => {
-    ;(async () => {
-      try {
-        Alert.alert("🚀 Splash", "Iniciando preparação do banco...")
-        await ensureDBReady() // << aguarda migrations e abertura
-        Alert.alert("✅ Splash", "Banco preparado")
+  const { databaseStatus$ } = useDB()
 
-        // Verifica se as tabelas existem
-        const tablesExist = await checkTablesExist()
-        if (tablesExist) {
-          Alert.alert("✅ Splash", "Tabelas verificadas, redirecionando...")
-        } else {
-          Alert.alert("❌ Splash", "Tabelas não existem após preparação")
-        }
-      } catch (e) {
-        Alert.alert("💥 Splash", `Erro na inicialização do banco: ${e}`)
-        // Em caso de erro, ainda tenta continuar para não travar o app
-      } finally {
-        await SplashScreen.hideAsync()
-        router.replace("/") // entra na Home só depois do DB pronto
+  const [status, setStatus] = useState<DatabaseStatus>(
+    DatabaseStatus.INITIALIZING
+  )
+
+  useEffect(() => {
+    const subscription = databaseStatus$.subscribe((statusdB) => {
+      setStatus(statusdB)
+      if (statusdB === DatabaseStatus.INITIALIZED) {
+        router.replace("/")
       }
-    })()
-  }, [])
+    })
+
+    return () => subscription.unsubscribe()
+  }, [databaseStatus$])
 
   return (
     <View
@@ -42,6 +33,11 @@ export default function Splash() {
         padding: 24,
       }}
     >
+      <Image
+        source={require("../assets/images/icon.png")}
+        style={{ width: 150, height: 150, marginBottom: 24, borderRadius: 12 }}
+      />
+
       <Text style={{ fontSize: 28, fontWeight: "700", color: "#333" }}>
         Mestre Cards
       </Text>
@@ -55,6 +51,18 @@ export default function Splash() {
         color="#007AFF"
         style={{ marginTop: 24 }}
       />
+
+      <Text
+        style={{
+          fontSize: 14,
+          color: "#666",
+          marginTop: 16,
+          textAlign: "center",
+          opacity: 0.8,
+        }}
+      >
+        {status}
+      </Text>
     </View>
   )
 }

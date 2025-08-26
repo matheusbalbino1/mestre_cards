@@ -2,6 +2,7 @@ import { Image } from "expo-image"
 import { router, useLocalSearchParams } from "expo-router"
 import React from "react"
 import { Alert, Button, Pressable, Text, View } from "react-native"
+import { getDeck } from "../lib/db/decks.repo"
 import {
   answerCard,
   loadDueToday,
@@ -9,35 +10,17 @@ import {
 } from "../lib/db/scheduling.repo"
 import { Rating } from "../lib/srs/sm2"
 
-// Função para formatar o tempo restante
-function formatTimeUntil(dueAt: string): string {
-  const now = new Date()
-  const due = new Date(dueAt)
-  const diffMs = due.getTime() - now.getTime()
-
-  if (diffMs <= 0) return "Disponível agora"
-
-  const diffMinutes = Math.floor(diffMs / (1000 * 60))
-  const diffHours = Math.floor(diffMinutes / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffDays > 0) {
-    return `${diffDays} dia${diffDays > 1 ? "s" : ""}`
-  } else if (diffHours > 0) {
-    return `${diffHours}h ${diffMinutes % 60}min`
-  } else {
-    return `${diffMinutes} min`
-  }
-}
-
 export default function StudyScreen() {
   const { deck } = useLocalSearchParams<{ deck?: string }>()
   const [queue, setQueue] = React.useState<StudyItem[]>([])
   const [flipped, setFlipped] = React.useState(false)
+  const [deckName, setDeckName] = React.useState<string>("")
 
   const [hasAnswered, setHasAnswered] = React.useState(false)
   const [handledPopup, setHandledPopup] = React.useState(false)
   const prevLenRef = React.useRef<number>(0)
+
+  const [failedCards, setFailedCards] = React.useState<Set<string>>(new Set())
 
   const reload = React.useCallback(async () => {
     const items = await loadDueToday(deck)
@@ -45,8 +28,62 @@ export default function StudyScreen() {
     setFlipped(false)
     setHasAnswered(false)
     setHandledPopup(false)
+    setFailedCards(new Set())
     prevLenRef.current = items.length
+
+    // Busca o nome do deck
+    if (deck) {
+      try {
+        const deckInfo = await getDeck(deck)
+        setDeckName(deckInfo?.name || "")
+      } catch (error) {
+        console.error("Erro ao buscar nome do deck:", error)
+      }
+    }
   }, [deck])
+
+  const current = queue[0]
+  let media: { frontImageUri?: string } | null = null
+  try {
+    media = current.media ? JSON.parse(current.media) : null
+  } catch {}
+
+  async function respond(r: Rating) {
+    const currentCardId = current.card_id
+    const isLastCard = queue.length === 1
+
+    if (r === Rating.Fail) {
+      // Primeira vez que erra
+      await answerCard(currentCardId, Rating.Fail)
+
+      if (isLastCard) {
+        // Se for o último card, mantém na fila para aparecer novamente
+        setFailedCards((prev) => new Set(prev).add(currentCardId))
+      } else {
+        // Se não for o último, move para o final da fila
+        setQueue((s) => {
+          const [first, ...rest] = s
+          return [...rest, first] // Move o primeiro para o final
+        })
+        setFailedCards((prev) => new Set(prev).add(currentCardId))
+      }
+    } else if (failedCards.has(currentCardId)) {
+      await answerCard(currentCardId, Rating.Fail)
+      setQueue((s) => s.slice(1)) // Remove o card da fila
+      setFailedCards((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(currentCardId)
+        return newSet
+      })
+    } else {
+      // Acertou: remove o card da fila
+      await answerCard(currentCardId, r)
+      setQueue((s) => s.slice(1))
+    }
+
+    setHasAnswered(true)
+    setFlipped(false)
+  }
 
   React.useEffect(() => {
     reload()
@@ -81,66 +118,44 @@ export default function StudyScreen() {
     )
   }
 
-  const current = queue[0]
-  let media: { frontImageUri?: string } | null = null
-  try {
-    media = current.media ? JSON.parse(current.media) : null
-  } catch {}
-
-  // Calcula quando o card estará disponível novamente
-  const getNextReviewTime = () => {
-    if (current.state.intervalMinutes > 0) {
-      const lastReview = current.state.lastReviewAt
-        ? new Date(current.state.lastReviewAt)
-        : new Date()
-      const nextReview = new Date(lastReview)
-      nextReview.setMinutes(
-        nextReview.getMinutes() + current.state.intervalMinutes
-      )
-      return formatTimeUntil(nextReview.toISOString())
-    } else if (current.state.intervalDays > 0) {
-      const lastReview = current.state.lastReviewAt
-        ? new Date(current.state.lastReviewAt)
-        : new Date()
-      const nextReview = new Date(lastReview)
-      nextReview.setDate(nextReview.getDate() + current.state.intervalDays)
-      return formatTimeUntil(nextReview.toISOString())
-    }
-    return "Disponível agora"
-  }
-
-  async function respond(r: Rating) {
-    await answerCard(current.card_id, r)
-    setHasAnswered(true)
-    setQueue((s) => s.slice(1))
-    setFlipped(false)
-  }
-
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={{ fontSize: 18, marginBottom: 8 }}>
-        Vencidos: {queue.length}
-        {deck ? `  •  Deck: ${deck}` : ""}
-      </Text>
-
-      {/* Informações do card atual */}
+    <View
+      style={{
+        flex: 1,
+        paddingTop: 64,
+        paddingHorizontal: 16,
+        paddingBottom: 64,
+      }}
+    >
+      {/* Header com nome do deck e botão Parar */}
       <View
         style={{
-          backgroundColor: "#f0f0f0",
-          padding: 12,
-          borderRadius: 8,
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
           marginBottom: 16,
         }}
       >
-        <Text style={{ fontSize: 14, opacity: 0.7 }}>
-          Repetições: {current.state.repetitions} • Facilidade:{" "}
-          {current.state.ease.toFixed(1)} • Erros: {current.state.lapses || 0}
+        <View style={{ flex: 1, alignItems: "flex-start" }}>
+          <Button
+            title="Parar"
+            onPress={() => router.replace("/")}
+            color="#666"
+          />
+        </View>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: "700",
+            flex: 2,
+            textAlign: "center",
+          }}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {deckName}
         </Text>
-        {current.state.intervalMinutes > 0 && (
-          <Text style={{ fontSize: 12, color: "#e74c3c", marginTop: 4 }}>
-            ⏰ Próxima revisão em: {getNextReviewTime()}
-          </Text>
-        )}
+        <View style={{ flex: 1 }} />
       </View>
 
       <Pressable
@@ -154,16 +169,16 @@ export default function StudyScreen() {
           padding: 24,
         }}
       >
-        {/* imagem só na frente */}
         {!flipped && media?.frontImageUri && (
           <Image
             source={{ uri: media.frontImageUri }}
             style={{
               width: "100%",
-              height: 220,
+              aspectRatio: 1,
               borderRadius: 12,
               marginBottom: 12,
               backgroundColor: "#eee",
+              resizeMode: "contain",
             }}
             contentFit="cover"
           />
@@ -172,17 +187,37 @@ export default function StudyScreen() {
         <Text style={{ fontSize: 22, textAlign: "center" }}>
           {flipped ? current.back : current.front}
         </Text>
-        <Text style={{ marginTop: 8, opacity: 0.6 }}>
+        <Text style={{ marginTop: 8, opacity: 0.6, fontSize: 15 }}>
           toque para {flipped ? "ocultar" : "revelar"}
         </Text>
       </Pressable>
 
       {flipped ? (
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
-          <Button title="Errei" onPress={() => respond(0)} />
-          <Button title="Difícil" onPress={() => respond(1)} />
-          <Button title="Bom" onPress={() => respond(2)} />
-          <Button title="Fácil" onPress={() => respond(3)} />
+        <View style={{ marginTop: 16 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              textAlign: "center",
+              marginBottom: 12,
+              opacity: 0.8,
+            }}
+          >
+            Como você se saiu com essa questão?
+          </Text>
+          <View style={{ flexDirection: "row", gap: 4 }}>
+            <View style={{ flex: 1 }}>
+              <Button title="Errei" onPress={() => respond(Rating.Fail)} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button title="Difícil" onPress={() => respond(Rating.Hard)} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button title="Normal" onPress={() => respond(Rating.Good)} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button title="Fácil" onPress={() => respond(Rating.Easy)} />
+            </View>
+          </View>
         </View>
       ) : (
         <View style={{ marginTop: 16 }}>

@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native"
+import { Button as ButtonRNP } from "react-native-paper"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import uuid from "react-native-uuid"
 import {
@@ -22,7 +23,10 @@ import {
   type CardWithDue,
 } from "../../lib/db/cards.repo"
 import { deleteDeck, getDeck } from "../../lib/db/decks.repo"
-import { resetCardScheduling } from "../../lib/db/scheduling.repo"
+import {
+  resetAllCardsScheduling,
+  resetCardScheduling,
+} from "../../lib/db/scheduling.repo"
 
 /* ---------- helpers de tempo (sem "vence hoje") ---------- */
 const HOUR_MS = 60 * 60 * 1000
@@ -90,6 +94,7 @@ export default function DeckScreen() {
   const [frontImageUri, setFrontImageUri] = React.useState<string | undefined>(
     undefined
   )
+  const [isResetting, setIsResetting] = React.useState(false)
 
   const load = React.useCallback(async () => {
     const deck = await getDeck(id)
@@ -114,6 +119,7 @@ export default function DeckScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       quality: 0.8,
       allowsEditing: true,
+      aspect: [1, 1], // Força proporção 1:1 (quadrado)
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
     })
     if (!result.canceled && result.assets.length > 0) {
@@ -130,16 +136,20 @@ export default function DeckScreen() {
       deckId: id,
     })
 
-    if (!front.trim() || !back.trim()) {
+    // Validação: frente é obrigatória apenas se não houver imagem, verso sempre obrigatório
+    if ((!front.trim() && !frontImageUri) || !back.trim()) {
       console.log("addCard: Campos obrigatórios não preenchidos", {
         frontEmpty: !front.trim(),
+        hasImage: !!frontImageUri,
         backEmpty: !back.trim(),
       })
-      Alert.alert(
-        "Campos obrigatórios",
-        "Por favor, preencha tanto a frente quanto o verso do card.",
-        [{ text: "OK" }]
-      )
+
+      let message = "Por favor, preencha:"
+      if (!front.trim() && !frontImageUri)
+        message += "\n• A frente do card (texto ou imagem)"
+      if (!back.trim()) message += "\n• O verso do card"
+
+      Alert.alert("Campos obrigatórios", message, [{ text: "OK" }])
       return
     }
 
@@ -163,16 +173,6 @@ export default function DeckScreen() {
         updated_at: now,
       })
 
-      console.log("addCard: Card criado com sucesso")
-
-      // Sucesso - mostra alert de confirmação
-      Alert.alert(
-        "Card criado!",
-        "Seu novo card foi adicionado ao deck com sucesso.",
-        [{ text: "OK" }]
-      )
-
-      console.log("addCard: Limpando formulário...")
       setFront("")
       setBack("")
       setFrontImageUri(undefined)
@@ -290,7 +290,7 @@ export default function DeckScreen() {
         </View>
 
         {/* Formulário para novo card */}
-        <View style={{ marginTop: 4 }}>
+        <View style={{ marginTop: 4, marginBottom: 24 }}>
           <TextInput
             placeholder="Frente"
             value={front}
@@ -312,20 +312,35 @@ export default function DeckScreen() {
               marginBottom: 8,
             }}
           >
-            <Button
-              title={
-                frontImageUri
-                  ? "Trocar imagem (frente)"
-                  : "Adicionar imagem (frente)"
-              }
+            <ButtonRNP
               onPress={pickFrontImage}
-            />
+              mode="outlined"
+              labelStyle={{ color: "#9b9b9b" }}
+              style={{
+                borderColor: "#9b9b9b",
+                borderWidth: 1,
+                borderRadius: 4,
+                borderStyle: "dashed",
+              }}
+            >
+              {frontImageUri
+                ? "TROCAR IMAGEM"
+                : "CLIQUE AQUI PARA ADICIONAR IMAGEM"}
+            </ButtonRNP>
+
             {frontImageUri && (
-              <Button
-                title="Remover"
-                color="#c00"
+              <ButtonRNP
                 onPress={() => setFrontImageUri(undefined)}
-              />
+                mode="outlined"
+                labelStyle={{ color: "#c00" }}
+                style={{
+                  borderColor: "#c00",
+                  borderWidth: 1,
+                  borderRadius: 4,
+                }}
+              >
+                REMOVER
+              </ButtonRNP>
             )}
           </View>
 
@@ -333,11 +348,12 @@ export default function DeckScreen() {
             <Image
               source={{ uri: frontImageUri }}
               style={{
-                width: "100%",
-                height: 160,
-                borderRadius: 10,
+                width: 150,
+                aspectRatio: 1,
+                borderRadius: 12,
                 marginBottom: 8,
                 backgroundColor: "#eee",
+                resizeMode: "contain",
               }}
               contentFit="cover"
             />
@@ -356,7 +372,60 @@ export default function DeckScreen() {
             }}
           />
 
-          <Button title="Adicionar card" onPress={addCard} />
+          <Button title="Adicionar card" onPress={addCard} color={ColorGreen} />
+
+          {/* Botão Resetar todos - só aparece se existirem cards */}
+          {cards.length > 0 && (
+            <View style={{ marginTop: 8 }}>
+              <Button
+                title={isResetting ? "Resetando..." : "Resetar todos"}
+                disabled={isResetting}
+                onPress={() => {
+                  Alert.alert(
+                    "Resetar todos os cards?",
+                    "Isso irá resetar o histórico de estudo de todos os cards deste deck. Eles voltarão a aparecer como novos para estudo.",
+                    [
+                      { text: "Cancelar", style: "cancel" },
+                      {
+                        text: "Resetar todos",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            setIsResetting(true)
+                            await resetAllCardsScheduling(id)
+
+                            // Força refresh completo dos dados
+                            await load()
+
+                            // Pequeno delay para garantir que os dados foram atualizados
+                            await new Promise((resolve) =>
+                              setTimeout(resolve, 100)
+                            )
+
+                            Alert.alert(
+                              "Sucesso!",
+                              "Todos os cards foram resetados com sucesso.",
+                              [{ text: "OK" }]
+                            )
+                          } catch (error) {
+                            console.error("Erro ao resetar cards:", error)
+                            Alert.alert(
+                              "Erro",
+                              "Não foi possível resetar os cards. Tente novamente.",
+                              [{ text: "OK" }]
+                            )
+                          } finally {
+                            setIsResetting(false)
+                          }
+                        },
+                      },
+                    ]
+                  )
+                }}
+                color="#f39c12"
+              />
+            </View>
+          )}
         </View>
 
         {/* Lista de cards */}
@@ -395,9 +464,9 @@ export default function DeckScreen() {
                   <Image
                     source={{ uri: media.frontImageUri }}
                     style={{
-                      width: "100%",
-                      height: 140,
-                      borderRadius: 8,
+                      width: 80,
+                      aspectRatio: 1,
+                      borderRadius: 12,
                       marginBottom: 8,
                       backgroundColor: "#eee",
                     }}
@@ -434,14 +503,26 @@ export default function DeckScreen() {
                 <View style={{ marginTop: 10, gap: 8 }}>
                   <Button
                     title="Resetar histórico"
-                    onPress={async () => {
-                      await resetCardScheduling(item.id)
-                      await load()
+                    onPress={() => {
+                      Alert.alert(
+                        "Resetar histórico?",
+                        `Isso irá resetar o histórico de estudo do card "${item.front}>${item.back}". Ele voltará a aparecer como novo para estudo.`,
+                        [
+                          { text: "Cancelar", style: "cancel" },
+                          {
+                            text: "Resetar",
+                            style: "destructive",
+                            onPress: async () => {
+                              await resetCardScheduling(item.id)
+                              await load()
+                            },
+                          },
+                        ]
+                      )
                     }}
                   />
-                  <Button
-                    title="Excluir"
-                    color="#c00"
+
+                  <ButtonRNP
                     onPress={() => {
                       Alert.alert("Excluir", "Excluir este card?", [
                         { text: "Cancelar" },
@@ -454,7 +535,16 @@ export default function DeckScreen() {
                         },
                       ])
                     }}
-                  />
+                    mode="outlined"
+                    labelStyle={{ color: "#c00" }}
+                    style={{
+                      borderColor: "#c00",
+                      borderWidth: 1,
+                      borderRadius: 4,
+                    }}
+                  >
+                    EXCLUIR
+                  </ButtonRNP>
                 </View>
               </View>
             )

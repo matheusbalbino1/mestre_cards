@@ -23,8 +23,22 @@ export async function getDeck(id: string): Promise<Deck | null> {
   return db.getFirstAsync<Deck>(`SELECT * FROM decks WHERE id=?`, id)
 }
 
+export async function getDeckByName(name: string): Promise<Deck | null> {
+  const db = await getDB()
+  return db.getFirstAsync<Deck>(`SELECT * FROM decks WHERE name=?`, name)
+}
+
 export async function createDeck(deck: Deck) {
   const db = await getDB()
+
+  // Verifica se já existe um deck com o mesmo nome
+  const existingDeck = await getDeckByName(deck.name)
+  if (existingDeck) {
+    throw new Error(
+      `Já existe um deck com o nome "${deck.name}". Escolha um nome diferente.`
+    )
+  }
+
   await db.runAsync(
     `INSERT INTO decks (id,name,description,tags,created_at,updated_at)
      VALUES (?,?,?,?,?,?)`,

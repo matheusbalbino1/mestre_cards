@@ -13,10 +13,6 @@ type Migration = (db: SQLiteDatabase) => Promise<void>
 const MIGRATIONS: Migration[] = [
   // v1
   async (db) => {
-    Alert.alert(
-      "🔧 Migração v1",
-      "Executando migração v1: criando tabelas base..."
-    )
     try {
       await db.execAsync?.(`
         -- metadados (já garantimos em getCurrentVersion, mas manter aqui é idempotente)
@@ -51,8 +47,8 @@ const MIGRATIONS: Migration[] = [
           lapses INTEGER DEFAULT 0
         );
       `)
-      Alert.alert("✅ Sucesso", "Migração v1 executada com sucesso")
     } catch (error) {
+      console.error(`###### Erro na migração v1: ${error} ######`)
       Alert.alert("❌ Erro", `Erro na migração v1: ${error}`)
       throw error
     }
@@ -60,10 +56,6 @@ const MIGRATIONS: Migration[] = [
 
   // v2
   async (db) => {
-    Alert.alert(
-      "🔧 Migração v2",
-      "Executando migração v2: adicionando due_at..."
-    )
     try {
       // adiciona due_at se não existir
       await db
@@ -77,8 +69,8 @@ const MIGRATIONS: Migration[] = [
              ELSE NULL
            END);
       `)
-      Alert.alert("✅ Sucesso", "Migração v2 executada com sucesso")
     } catch (error) {
+      console.error(`###### Erro na migração v2: ${error} ######`)
       Alert.alert("❌ Erro", `Erro na migração v2: ${error}`)
       throw error
     }
@@ -86,10 +78,6 @@ const MIGRATIONS: Migration[] = [
 
   // v3
   async (db) => {
-    Alert.alert(
-      "🔧 Migração v3",
-      "Executando migração v3: adicionando interval_minutes..."
-    )
     try {
       // adiciona interval_minutes se não existir
       await db
@@ -103,8 +91,8 @@ const MIGRATIONS: Migration[] = [
            SET interval_minutes = 0
            WHERE interval_minutes IS NULL;
       `)
-      Alert.alert("✅ Sucesso", "Migração v3 executada com sucesso")
     } catch (error) {
+      console.error(`###### Erro na migração v3: ${error} ######`)
       Alert.alert("❌ Erro", `Erro na migração v3: ${error}`)
       throw error
     }
@@ -112,7 +100,6 @@ const MIGRATIONS: Migration[] = [
 ]
 
 async function getCurrentVersion(db: SQLiteDatabase): Promise<number> {
-  Alert.alert("🔍 Verificação", "Verificando versão atual do banco...")
   try {
     // Garante a tabela __meta e uma linha com versão 0
     await db.execAsync?.(`
@@ -124,51 +111,42 @@ async function getCurrentVersion(db: SQLiteDatabase): Promise<number> {
       .catch(() => null)
 
     if (!row || typeof row.version !== "number") {
-      Alert.alert("🆕 Inicialização", "Inicializando versão do banco para 0")
       await db.execAsync?.(`DELETE FROM __meta;`)
       await db.execAsync?.(`INSERT INTO __meta(version) VALUES (0);`)
       return 0
     }
-    Alert.alert("📊 Versão", `Versão atual do banco: ${row.version}`)
     return row.version
   } catch (error) {
+    console.error(`###### Erro ao verificar versão: ${error} ######`)
     Alert.alert("❌ Erro", `Erro ao verificar versão: ${error}`)
     throw error
   }
 }
 
 async function setCurrentVersion(db: SQLiteDatabase, v: number) {
-  Alert.alert("🔄 Atualização", `Atualizando versão do banco para ${v}`)
   await db.execAsync?.(`UPDATE __meta SET version = ${v};`)
 }
 
 export async function applyMigrations(db: SQLiteDatabase) {
-  Alert.alert("🚀 Migrações", "Iniciando aplicação de migrações...")
   try {
     const current = await getCurrentVersion(db)
     const target = MIGRATIONS.length
 
-    Alert.alert("📈 Status", `Versão atual: ${current}, Versão alvo: ${target}`)
-
     for (let v = current; v < target; v++) {
-      Alert.alert("🔄 Execução", `Executando migração ${v + 1}/${target}...`)
       await db.execAsync?.("BEGIN TRANSACTION;")
       try {
         await MIGRATIONS[v](db)
         await setCurrentVersion(db, v + 1)
         await db.execAsync?.("COMMIT;")
-        Alert.alert("✅ Sucesso", `Migração ${v + 1} executada com sucesso`)
       } catch (e) {
+        console.error(`###### Erro na migração ${v + 1}: ${e} ######`)
         Alert.alert("❌ Erro", `Erro na migração ${v + 1}: ${e}`)
         await db.execAsync?.("ROLLBACK;")
         throw e
       }
     }
-    Alert.alert(
-      "🎉 Concluído",
-      "Todas as migrações foram aplicadas com sucesso"
-    )
   } catch (error) {
+    console.error(`###### Erro ao aplicar migrações: ${error} ######`)
     Alert.alert("💥 Erro Fatal", `Erro ao aplicar migrações: ${error}`)
     throw error
   }
