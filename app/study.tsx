@@ -95,7 +95,7 @@ export default function StudyScreen() {
     if (!handledPopup && hasAnswered && prev > 0 && curr === 0) {
       setHandledPopup(true)
       Alert.alert("Tudo certo!", "Deck estudado com sucesso 🎉", [
-        { text: "OK", onPress: () => router.replace("/") },
+        { text: "OK", onPress: () => router.replace("/home" as any) },
       ])
     }
     prevLenRef.current = curr
@@ -113,7 +113,7 @@ export default function StudyScreen() {
       >
         <Text style={{ opacity: 0.7 }}>Nada para hoje</Text>
         <View style={{ height: 8 }} />
-        <Button title="Voltar" onPress={() => router.replace("/")} />
+        <Button title="Voltar" onPress={() => router.replace("/home" as any)} />
       </View>
     )
   }
@@ -139,7 +139,7 @@ export default function StudyScreen() {
         <View style={{ flex: 1, alignItems: "flex-start" }}>
           <Button
             title="Parar"
-            onPress={() => router.replace("/")}
+            onPress={() => router.replace("/home" as any)}
             color="#666"
           />
         </View>

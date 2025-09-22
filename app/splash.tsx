@@ -16,7 +16,7 @@ export default function Splash() {
     const subscription = databaseStatus$.subscribe((statusdB) => {
       setStatus(statusdB)
       if (statusdB === DatabaseStatus.INITIALIZED) {
-        router.replace("/")
+        router.replace("/home" as any)
       }
     })
 

@@ -17,7 +17,7 @@ export const DBProvider = ({ children }: { children: React.ReactNode }) => {
     <SQLiteProvider
       databaseName={DB_CONFIG.name}
       onInit={async (db) => {
-        initializeDatabase(db, databaseStatus$)
+        await initializeDatabase(db, databaseStatus$)
       }}
     >
       <DBContext.Provider

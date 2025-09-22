@@ -218,7 +218,7 @@ export default function DeckScreen() {
           style: "destructive",
           onPress: async () => {
             await deleteDeck(id)
-            router.replace("/") // Home recarrega via useFocusEffect
+            router.replace("/home" as any) // Home recarrega via useFocusEffect
           },
         },
       ],
