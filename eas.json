@@ -6,7 +6,7 @@
       "developmentClient": false
     },
     "production": {
-      "android": { "buildType": "app-bundle" }
+      "android": { "buildType": "apk" }
     }
   }
 }

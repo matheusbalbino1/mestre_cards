@@ -6,6 +6,14 @@ Um aplicativo móvel de flashcards inteligente que utiliza algoritmos de repeti�
 
 Mestre Cards é uma aplicação React Native que implementa o algoritmo SM-2 (SuperMemo 2) para gerenciar o agendamento inteligente de revisões de flashcards. O sistema adapta-se automaticamente ao desempenho do usuário, apresentando cards no momento ideal para maximizar a retenção.
 
+## 📱 Screenshots do App
+
+<div align="center">
+  <img src="assets/images/screenshots/home-screen.jpg" width="200" alt="Tela Principal"/>
+  <img src="assets/images/screenshots/study-screen.jpg" width="200" alt="Tela de Estudo"/>
+  <img src="assets/images/screenshots/deck-list.jpg" width="200" alt="Lista de Decks"/>
+</div>
+
 ## 🏗️ Arquitetura do Sistema
 
 ### Estrutura de Diretórios

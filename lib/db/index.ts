@@ -2,7 +2,7 @@
 import * as SQLite from "expo-sqlite"
 import { Alert } from "react-native"
 import { Subject } from "rxjs"
-import { DB_CONFIG, DB_PRAGMAS } from "./config"
+import { DB_CONFIG } from "./config"
 import { applyMigrations } from "./migrations"
 
 export enum DatabaseStatus {
@@ -245,7 +245,6 @@ export async function initializeDatabase(
   databaseStatus$: Subject<DatabaseStatus>
 ) {
   try {
-    await new Promise((resolve) => setTimeout(resolve, 1000))
     databaseStatus$.next(DatabaseStatus.INITIALIZING)
 
     await dbProvider.execAsync(`
@@ -272,25 +271,17 @@ export async function initializeDatabase(
       );
     `)
 
-    for (const pragma of DB_PRAGMAS) {
-      try {
-        await dbProvider.execAsync?.(pragma)
-      } catch (error) {
-        Alert.alert("⚠️ Aviso", `Pragma ${pragma} falhou: ${error}`)
-      }
-    }
-
     databaseStatus$.next(DatabaseStatus.MIGRATING)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     await applyMigrations(dbProvider)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     const tablesExist = await checkTablesExist()
     if (!tablesExist) {
       throw new Error("Tabelas não foram criadas após as migrações")
     }
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     await seedIfEmpty(databaseStatus$)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     databaseStatus$.next(DatabaseStatus.INITIALIZED)
     return
   } catch (error) {
